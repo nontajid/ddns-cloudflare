@@ -1,0 +1,23 @@
+{
+  "name": "ddns-cloudflare",
+  "version": "1.0.0",
+  "description": "Script to update DNS record on cloudflare",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nontajid/ddns-cloudflare.git"
+  },
+  "author": "Nontajid Pantarak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nontajid/ddns-cloudflare/issues"
+  },
+  "homepage": "https://github.com/nontajid/ddns-cloudflare#readme",
+  "dependencies": {
+    "dotenv": "^6.0.0",
+    "node-fetch": "^2.1.2"
+  }
+}
