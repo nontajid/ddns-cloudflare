@@ -1,106 +1,56 @@
-const fetch = require('node-fetch');
+// Include All Dependency
+const CloudFlareApi = require('./cloudflare-api');
+const MyIp = require('./my-ip');
+const colorLog = require('./colorlog');
 
 class DDNSCloudFlare {
-    constructor(email,apiKey,url = 'https://api.cloudflare.com/client/v4') {
-        this.url   = url;
-        this.email = email;
-        this.apiKey = apiKey
-        
-        this.setHeader();
+    constructor(setting) {
+        // Print out Welcome Message to screen 
+        colorLog('Welcome To DDNS Updater We are starting now....','green');
+
+        this.setting = setting;
+        this.initRetry = 0;
+        this.init();
     }
 
-    setHeader() {
-        this.header = {
-            'X-Auth-Email': this.email,
-            'X-Auth-Key': this.apiKey,
-            'Content-Type': 'application/json'
+    async init() {
+        this.myIp = new MyIp(this.setting.ipServerArray);
+        this.cloudFlare = new CloudFlareApi(this.setting.credential.email, this.setting.credential.apiKey);
+
+        try {
+            await this.myIp.getIp(); // Try getting Ip
+            colorLog('Local Ip is retrived', 'yellow');
+
+            await this.cloudFlare.init(); // Try conntected and resolve domain from CloudFlare
+            this.cloudFlare.setMainDomain(this.setting.credential.mainDomain);
+            colorLog('Initailize Cloudflare Updater Done','yellow');
+
+            setInterval(this.checkAndSetNewIP.bind(this), this.setting.updateInterval); 
+        } catch(e) {
+            console.error(e);
+            this.initRetry++;
+
+            if(this.initRetry < this.setting.noOfRetry) 
+                setTimeout(this.init.bind(this), this.setting.timeBeforeRetry);
         }
     }
 
-    init() {
-        return new Promise((resolve,reject)=>{
-            this.getZoneId()
-            .then( data => { return data.json(); } )
-            .then( zones => {                  
-                    if (zones.result && zones.success) {
-                        this.zones = zones.result;
-                        resolve(zones);
-                    } else {
-                        reject(zones.errors);
-                    }   
-                })
-            .catch( e => { reject(e); } );
-        });
-    }
+    async checkAndSetNewIP() {
+        const domainToUpdate = this.setting.updateRecord.domain;
+        const updatingType = this.setting.updateRecord.recordType;
 
-    getZoneId() {
-        const url = this.url + '/zones';
-        const args = {
-            method: 'GET',
-            headers: this.header,
-        };
-        return fetch(url,args);
-    }
-
-    getRecordId(domain,recordType) {
-        const url = this.url + '/zones/' + this.zoneId + '/dns_records';
-        const args = {
-            method: 'GET',
-            headers: this.header,
-        };
-        return new Promise((resolve,reject)=>{
-             fetch(url,args)
-             .then( json => { return json.json() })
-             .then( records => {
-                if (records.result && records.success) {
-                    const record = records.result.find( 
-                        record => record.name == domain && record.type == recordType 
-                    );
-
-                    if( record ) {
-                        resolve(record);
-                    } else {
-                        reject('record not found');
-                    }
-                }
-             })
-             .catch( e => { reject(e); });
-        });
-    }
-
-    setMainDomain(domainName) {
-        this.mainDomain = domainName;
-        this.zone = this.zones.find( zone => zone.name == domainName);
-        this.zoneId = this.zone.id;
-        return this.zone;
-    }
-
-    updateRecord(ip, domain, recordType, dnsId) {
-        const url = this.url + '/zones/' + this.zoneId + '/dns_records/' + dnsId;
-        const data = {
-            'type': recordType,
-            'name': domain,
-            'content': ip,
-            'ttl': 1,
-        };
-        const args = {
-            method: 'PUT',
-            headers: this.header,
-            body: JSON.stringify(data)
-        };
-
-        return new Promise((resolve,reject)=>{
-            fetch(url,args)
-            .then( json => { return json.json(); } )
-            .then( data => {
-                if(data.success) {
-                    resolve();
-                } else {
-                    reject(data.errors)
-                }
-            })
-            .catch( e => { reject(e); } );
-        });
+        try {
+            const record = await this.cloudFlare.getRecordId(domainToUpdate,updatingType);
+            const ip = this.myIp.currentIp;
+            
+            if(record.content != ip) {
+                // Actual Update IP part
+                await this.cloudFlare.updateRecord(ip, domainToUpdate, updatingType, record.id);
+                colorLog(`Ip is updated to ${ip}`,'blue');
+            }
+        } catch(e) {
+            console.error(e)
+        }
     }
 }
 
