@@ -25,7 +25,11 @@ class DDNSCloudFlare {
             this.cloudFlare.setMainDomain(this.setting.credential.mainDomain);
             colorLog('Initailize Cloudflare Updater Done','yellow');
 
-            setInterval(this.checkAndSetNewIP.bind(this), this.setting.updateInterval); 
+            this.checkAndSetNewIP();
+            if (!this.setting.once) {
+                setInterval(this.checkAndSetNewIP.bind(this), this.setting.updateInterval); 
+            }
+            
         } catch(e) {
             console.error(e);
             this.initRetry++;
