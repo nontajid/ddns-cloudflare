@@ -1,30 +1,14 @@
+// Include All Dependency
 require('dotenv').config();
 const CloudFlare = require('./src/ddns-cloudflare');
 const MyIp = require('./src/my-ip');
-
-const noOfRetry = 20;
-const timeBeforeRetry = 20000;
-const updateInterval = 30000;
-
-const colorLog = (message, color) => {
-    const logColor = {    
-        reset : "\x1b[0m",
-        black : "\x1b[30m",
-        red : "\x1b[31m",
-        green : "\x1b[32m",
-        yellow : "\x1b[33m",
-        blue : "\x1b[34m",
-        magenta : "\x1b[35m",
-        cyan : "\x1b[36m",
-        white : "\x1b[37m"
-    }
-    color = color? color in logColor? logColor[color] : logColor.black : logColor.black;
-    return message? console.log(color, message , logColor.reset ) : null;
-}
+const colorLog = require('./src/colorlog');
 
 class Main {
-    constructor() {
+    constructor(setting) {
+        // Print out Welcome Message to screen 
         colorLog('Welcome To DDNS Updater We are starting now....','green');
+        this.setting = setting;
         this.email = process.env.CLOUD_FLARE_EMAIL;
         this.apiKey = process.env.CLOUD_FLARE_KEY;
         this.mainDomain = process.env.MAIN_DOMAIN;
@@ -36,45 +20,52 @@ class Main {
         this.init();
     }
 
-    init() {
+    async init() {
         this.myIp = new MyIp(this.ipServerArray);
         this.cloudFlare = new CloudFlare(this.email,this.apiKey);
 
-        this.myIp.getIp()
-        .then( () => {
+        try {
+            await this.myIp.getIp(); // Try getting Ip
             colorLog('Local Ip is retrived', 'yellow');
-            this.initUpdater(); //Get Initial Ip StartUpdater
-        }).catch( error => {
-            console.error(error);
-            this.initRetry++;
-            if(this.initRetry < noOfRetry) setTimeout(this.init.bind(this), timeBeforeRetry);
-        });
-    }
 
-    initUpdater() {
-        this.cloudFlare.init()
-        .then( zone => {
-            colorLog('Initailize Cloudflare Updater Done','yellow');
+            await this.cloudFlare.init(); // Try conntected and resolve domain from CloudFlare
             this.cloudFlare.setMainDomain(this.mainDomain);
-            setInterval(this.checkAndSetNewIP.bind(this), updateInterval);
-        }).catch( error => {
-            console.error(error);
+            colorLog('Initailize Cloudflare Updater Done','yellow');
+
+            setInterval(this.checkAndSetNewIP.bind(this), this.setting.updateInterval); 
+        } catch(e) {
+            console.error(e);
             this.initRetry++;
-            if(this.initRetry < noOfRetry) setTimeout(this.initUpdater.bind(this), timeBeforeRetry);
-        });
+            if(this.initRetry < this.setting.noOfRetry) setTimeout(this.init.bind(this), this.setting.timeBeforeRetry);
+        }
     }
 
-    checkAndSetNewIP() {
-        this.cloudFlare.getRecordId(this.domain,this.recordType)
-        .then( record => {
-            let ip = this.myIp.currentIp;
+    async checkAndSetNewIP() {
+        try {
+            const record = await this.cloudFlare.getRecordId(this.domain,this.recordType).then( record => { return record; } );
+            const ip = this.myIp.currentIp;
+
             if(record.content != ip) {
-                this.cloudFlare.updateRecord(ip, this.domain, this.recordType, record.id)
-                .then( () => colorLog(`Ip is updated to ${ip}`,'blue'))
-                .catch( e => console.error(e));
+                await this.cloudFlare.updateRecord(ip, this.domain, this.recordType, record.id);
+                colorLog(`Ip is updated to ${ip}`,'blue');
             }
-        }).catch( e => console.error(e));
+        } catch(e) {
+            console.error(e)
+        }
     }
 }
 
-new Main();
+const nodeEnv = process.env.NODE_ENV || 'production';
+const setting = {};
+
+if ( nodeEnv === 'production' ) {
+    setting.noOfRetry = 20;
+    setting.timeBeforeRetry = 20000;
+    setting.updateInterval = 30000;
+} else {
+    setting.noOfRetry = 50;
+    setting.timeBeforeRetry = 1000;
+    setting.updateInterval = 1000;
+}
+
+new Main(setting);
