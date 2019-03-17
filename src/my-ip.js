@@ -6,7 +6,9 @@ class MyIp {
         this.isGetIpByDig = false;
         this.servers = servers;
         
-        if (this.servers.length < 1) this.isGetIpByDig = true;
+        if (this.servers.length < 1) {
+            this.isGetIpByDig = true; 
+        }
     }
 
     getRandomServer() {
@@ -37,7 +39,7 @@ class MyIp {
         return new Promise( (resolve, reject) => {
             exec("dig +short myip.opendns.com @resolver1.opendns.com", (error, stdout) => {
                 if (error !== null) {
-                    reject('exec error: ' + error);
+                    reject(`exec error: ${error}`);
                 }                    
 
                 if ( stdout ) {
