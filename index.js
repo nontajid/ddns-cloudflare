@@ -5,9 +5,10 @@ const DDNSCloudFlare = require('./src/ddns-cloudflare');
 const nodeEnv = process.env.NODE_ENV || 'production';
 
 let setting = {};
+let ipServer = process.env.IP_SERVER? [process.env.IP_SERVER] : [];
 
 setting = {
-    "ipServerArray": [process.env.IP_SERVER],
+    "ipServerArray": ipServer,
     "noOfRetry" : 1000,
     "timeBeforeRetry" : 600000, // Retry every 10 min
     "updateInterval" : 60000, // Update every 1 min
