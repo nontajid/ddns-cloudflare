@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start-docker": "pm2-docker start pm2_configs/config.json",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
