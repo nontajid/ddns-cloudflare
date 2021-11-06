@@ -21,7 +21,7 @@ class CloudFlareApi {
         return new Promise((resolve,reject)=>{
             this.getZoneId()
             .then( data => { return data.json(); } )
-            .then( zones => {                  
+            .then( zones => {
                     if (zones.result && zones.success) {
                         this.zones = zones.result;
                         resolve(zones);
@@ -29,7 +29,9 @@ class CloudFlareApi {
                         reject(zones.errors);
                     }   
                 })
-            .catch( e => { reject(e); } );
+            .catch( e => {
+                reject(e);
+            } );
         });
     }
 
@@ -39,6 +41,7 @@ class CloudFlareApi {
             method: 'GET',
             headers: this.header,
         };
+
         return fetch(url,args);
     }
 
